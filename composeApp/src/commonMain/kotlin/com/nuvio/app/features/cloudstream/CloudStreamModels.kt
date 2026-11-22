@@ -66,6 +66,18 @@ data class CloudStreamPluginMetadata(
     val fileHash: CloudStreamFileHash?,
 )
 
+/**
+ * What the gear button on a CS3 plugin card opens. Stored by name in
+ * [StoredCloudStreamState]; unknown stored values fall back to [CLOUDSTREAM].
+ */
+enum class CloudStreamGearButtonUi {
+    /** The plugin's own native settings UI via its `openSettings` entry point. */
+    CLOUDSTREAM,
+
+    /** The host-built Nuvio Plugin Settings dialog. */
+    NUVIO,
+}
+
 enum class CloudStreamPluginStatus {
     Down,
     Ok,
@@ -212,6 +224,8 @@ internal data class StoredCloudStreamState(
     val repositories: List<StoredCloudStreamRepository> = emptyList(),
     val plugins: List<StoredCloudStreamPlugin> = emptyList(),
     val securityWarningAccepted: Boolean = false,
+    /** [CloudStreamGearButtonUi] name; unknown values fall back to CLOUDSTREAM. */
+    val gearButtonUi: String = CloudStreamGearButtonUi.CLOUDSTREAM.name,
 )
 
 @Serializable

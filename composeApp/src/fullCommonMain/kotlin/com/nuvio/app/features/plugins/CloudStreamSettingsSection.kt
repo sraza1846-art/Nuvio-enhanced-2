@@ -54,6 +54,7 @@ import com.nuvio.app.core.ui.NuvioSectionLabel
 import com.nuvio.app.core.ui.NuvioSurfaceCard
 import com.nuvio.app.features.cloudstream.AddCloudStreamRepositoryResult
 import com.nuvio.app.features.cloudstream.CloudStreamBulkInstallResult
+import com.nuvio.app.features.cloudstream.CloudStreamGearButtonUi
 import com.nuvio.app.features.cloudstream.CloudStreamInstallResult
 import com.nuvio.app.features.cloudstream.CloudStreamPlatformRuntime
 import com.nuvio.app.features.cloudstream.CloudStreamPlatformSupport
@@ -140,6 +141,32 @@ internal fun CloudStreamSettingsSection() {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+
+    NuvioSurfaceCard {
+        Text(
+            text = copy.gearButtonUiTitle,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(Modifier.height(10.dp))
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            CloudStreamFilterChip(
+                copy.gearButtonUiCloudStream,
+                state.gearButtonUi == CloudStreamGearButtonUi.CLOUDSTREAM,
+            ) {
+                CloudStreamRepository.setGearButtonUi(CloudStreamGearButtonUi.CLOUDSTREAM)
+            }
+            CloudStreamFilterChip(
+                copy.gearButtonUiNuvio,
+                state.gearButtonUi == CloudStreamGearButtonUi.NUVIO,
+            ) {
+                CloudStreamRepository.setGearButtonUi(CloudStreamGearButtonUi.NUVIO)
+            }
+        }
     }
 
     if (!state.securityWarningAccepted) {
@@ -434,12 +461,25 @@ internal fun CloudStreamSettingsSection() {
             onMessage = { message = it },
             onOpenSettings = { item ->
                 scope.launch {
-                    val settings = CloudStreamPlatformRuntime.getCs3PluginSettings(item)
-                    if (settings == null) {
-                        message = copy.pluginNoSettings
+                    if (state.gearButtonUi == CloudStreamGearButtonUi.NUVIO) {
+                        val settings = CloudStreamPlatformRuntime.getCs3PluginSettings(item)
+                        if (settings == null) {
+                            message = copy.pluginNoSettings
+                        } else {
+                            configuringCs3Plugin = item
+                            configuringCs3Settings = settings
+                        }
                     } else {
-                        configuringCs3Plugin = item
-                        configuringCs3Settings = settings
+                        val opened = CloudStreamPlatformRuntime.openCs3PluginNativeSettings(item)
+                        if (!opened) {
+                            val settings = CloudStreamPlatformRuntime.getCs3PluginSettings(item)
+                            if (settings == null) {
+                                message = copy.pluginNoSettings
+                            } else {
+                                configuringCs3Plugin = item
+                                configuringCs3Settings = settings
+                            }
+                        }
                     }
                 }
             },
@@ -729,6 +769,12 @@ private class CloudStreamSettingsCopy private constructor(
         if (turkish) "Eklenti ayarları" else "Plugin settings"
     val pluginNoSettings: String =
         if (turkish) "Bu eklentinin ayarları yok." else "This plugin has no settings."
+    val gearButtonUiTitle: String =
+        if (turkish) "Uzantı Ayar Düğmesi Arayüzü" else "Extension Gear Button UI"
+    val gearButtonUiCloudStream: String =
+        if (turkish) "CloudStream UI (Varsayılan)" else "CloudStream UI (Default)"
+    val gearButtonUiNuvio: String =
+        if (turkish) "Nuvio UI" else "Nuvio UI"
     val acceptSecurityWarningFailure: String =
         if (turkish) "Üçüncü taraf eklenti güvenlik uyarısını kabul edin." else "Accept the third-party plugin security warning."
     val pluginNotFoundFailure: String =

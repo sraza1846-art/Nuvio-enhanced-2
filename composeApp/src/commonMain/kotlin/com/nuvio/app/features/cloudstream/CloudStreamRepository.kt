@@ -35,6 +35,7 @@ data class CloudStreamUiState(
     val plugins: List<CloudStreamPluginItem> = emptyList(),
     val registryRevision: Long = 0L,
     val securityWarningAccepted: Boolean = false,
+    val gearButtonUi: CloudStreamGearButtonUi = CloudStreamGearButtonUi.CLOUDSTREAM,
 )
 
 sealed interface AddCloudStreamRepositoryResult {
@@ -67,6 +68,7 @@ expect object CloudStreamRepository {
     fun onProfileChanged(profileId: Int)
     fun clearLocalState()
     fun acceptSecurityWarning()
+    fun setGearButtonUi(ui: CloudStreamGearButtonUi)
 
     suspend fun addRepository(rawUrl: String): AddCloudStreamRepositoryResult
     suspend fun discoverRepositories(rawInput: String): Result<Int>

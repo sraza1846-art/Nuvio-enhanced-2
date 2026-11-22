@@ -143,6 +143,30 @@ internal actual object CloudStreamPlatformRuntime {
         CloudStreamApp.setKey("$CINESTREAM_CF_COOKIE_PREFIX${domain.trim().lowercase()}", null as String?)
     }
 
+    actual suspend fun openCs3PluginNativeSettings(plugin: CloudStreamPluginItem): Boolean {
+        if (!plugin.isInstalled) return false
+        if (plugin.compatibility.runtimeKind != CloudStreamRuntimeKind.AndroidDex) return false
+        val context = getContext() ?: return false
+        prepareHostContext(context)
+        val loaded = runCatching {
+            withTimeoutOrNull(CS3_SETTINGS_LOAD_TIMEOUT_MS) { loadOrGetPlugin(plugin) }
+        }.getOrNull() ?: return false
+        val pluginInstance = loaded.instance as? Plugin ?: return false
+        val openSettings = pluginInstance.openSettings ?: return false
+        // The plugin's own UI (CineStream's is a platform AlertDialog) needs
+        // an Activity window token: the host MainActivity is kept in
+        // activityReference by initialize() (see MainActivity.onCreate). The
+        // identity context is only a fallback — invoking with it fails and
+        // the caller falls back to the host-built dialog.
+        val settingsContext = activityReference?.get() ?: loaded.context
+        return runCatching {
+            withContext(Dispatchers.Main) { openSettings(settingsContext) }
+            true
+        }.onFailure { error ->
+            log.e(error) { "Failed to open native settings for ${plugin.metadata.internalName}" }
+        }.getOrDefault(false)
+    }
+
     private suspend fun loadOrGetPlugin(plugin: CloudStreamPluginItem): LoadedPlugin = withContext(Dispatchers.IO) {
         var loadedNow = false
         val loadedPlugin = loadMutex.withLock {

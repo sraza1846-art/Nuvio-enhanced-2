@@ -125,6 +125,12 @@ actual object CloudStreamRepository {
         persist()
     }
 
+    actual fun setGearButtonUi(ui: CloudStreamGearButtonUi) {
+        initialize()
+        _uiState.update { it.copy(gearButtonUi = ui) }
+        persist()
+    }
+
     actual suspend fun addRepository(rawUrl: String): AddCloudStreamRepositoryResult {
         initialize()
         val manifestUrl = runCatching { resolveCloudStreamRepositoryInput(rawUrl) }
@@ -866,6 +872,8 @@ actual object CloudStreamRepository {
             plugins = plugins,
             registryRevision = 1,
             securityWarningAccepted = stored.securityWarningAccepted,
+            gearButtonUi = runCatching { CloudStreamGearButtonUi.valueOf(stored.gearButtonUi) }
+                .getOrDefault(CloudStreamGearButtonUi.CLOUDSTREAM),
         )
     }
 
@@ -885,6 +893,7 @@ actual object CloudStreamRepository {
             },
             plugins = current.plugins.map { item -> item.toStored() },
             securityWarningAccepted = current.securityWarningAccepted,
+            gearButtonUi = current.gearButtonUi.name,
         )
         CloudStreamPlatformStorage.saveState(currentProfileId, json.encodeToString(stored))
     }
