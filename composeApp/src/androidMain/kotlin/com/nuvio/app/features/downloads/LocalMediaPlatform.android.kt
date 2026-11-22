@@ -98,7 +98,7 @@ internal actual object LocalMediaPlatform {
     actual suspend fun scanFolder(folderUri: String): List<LocalMediaFile> = withContext(Dispatchers.IO) {
         val context = appContext ?: return@withContext emptyList()
         val treeUri = runCatching { Uri.parse(folderUri) }.getOrNull() ?: return@withContext emptyList()
-        val rootName = folderDisplayName(context, treeUri)
+        val rootName = folderDisplayName(context, treeUri) ?: "Folder"
         val found = ArrayList<LocalMediaFile>()
         scanTree(context, treeUri, treeUri, rootName, rootName, 0, found)
         found
