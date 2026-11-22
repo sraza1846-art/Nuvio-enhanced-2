@@ -20,6 +20,7 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -54,9 +55,11 @@ import com.nuvio.app.core.ui.NuvioSurfaceCard
 import com.nuvio.app.features.cloudstream.AddCloudStreamRepositoryResult
 import com.nuvio.app.features.cloudstream.CloudStreamBulkInstallResult
 import com.nuvio.app.features.cloudstream.CloudStreamInstallResult
+import com.nuvio.app.features.cloudstream.CloudStreamPlatformRuntime
 import com.nuvio.app.features.cloudstream.CloudStreamPlatformSupport
 import com.nuvio.app.features.cloudstream.CloudStreamPluginItem
 import com.nuvio.app.features.cloudstream.CloudStreamRepository
+import com.nuvio.app.features.cloudstream.Cs3PluginSettings
 import com.nuvio.app.features.settings.AppLanguage
 import com.nuvio.app.features.settings.ThemeSettingsRepository
 import com.nuvio.app.features.streams.StreamSourcePreferencesRepository
@@ -87,6 +90,8 @@ internal fun CloudStreamSettingsSection() {
     var message by rememberSaveable { mutableStateOf<String?>(null) }
     var bulkInstallMessage by rememberSaveable { mutableStateOf<String?>(null) }
     var isBulkInstalling by remember { mutableStateOf(false) }
+    var configuringCs3Plugin by remember { mutableStateOf<CloudStreamPluginItem?>(null) }
+    var configuringCs3Settings by remember { mutableStateOf<Cs3PluginSettings?>(null) }
 
     val languages = remember(state.plugins) {
         state.plugins.mapNotNull { it.metadata.language }.distinct().sorted()
@@ -427,6 +432,34 @@ internal fun CloudStreamSettingsSection() {
             pinnedSourceIds = pinnedSourceIds,
             copy = copy,
             onMessage = { message = it },
+            onOpenSettings = { item ->
+                scope.launch {
+                    val settings = CloudStreamPlatformRuntime.getCs3PluginSettings(item)
+                    if (settings == null) {
+                        message = copy.pluginNoSettings
+                    } else {
+                        configuringCs3Plugin = item
+                        configuringCs3Settings = settings
+                    }
+                }
+            },
+        )
+    }
+
+    if (configuringCs3Plugin != null && configuringCs3Settings != null) {
+        Cs3PluginSettingsDialog(
+            initial = configuringCs3Settings!!,
+            onDismiss = {
+                configuringCs3Plugin = null
+                configuringCs3Settings = null
+            },
+            onSave = { edited ->
+                configuringCs3Plugin?.let { CloudStreamPlatformRuntime.saveCs3PluginSettings(it, edited) }
+            },
+            onRemoveBypassCookie = { domain ->
+                CloudStreamPlatformRuntime.removeCs3PluginBypassCookie(domain)
+            },
+            onMessage = { message = it },
         )
     }
 }
@@ -457,6 +490,7 @@ private fun CloudStreamPluginCard(
     pinnedSourceIds: Set<String>,
     copy: CloudStreamSettingsCopy,
     onMessage: (String) -> Unit,
+    onOpenSettings: (CloudStreamPluginItem) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val sourceId = remember(plugin.metadata.id.value) { cloudStreamAddonId(plugin.metadata.id.value) }
@@ -479,6 +513,14 @@ private fun CloudStreamPluginCard(
                 )
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
+                if (plugin.isInstalled) {
+                    NuvioIconActionButton(
+                        icon = Icons.Rounded.Settings,
+                        contentDescription = copy.pluginSettings,
+                        tint = MaterialTheme.colorScheme.primary,
+                        onClick = { onOpenSettings(plugin) },
+                    )
+                }
                 NuvioIconActionButton(
                     icon = Icons.Rounded.PushPin,
                     contentDescription = if (isPinnedSource) copy.unpinSource else copy.pinSource,
@@ -683,6 +725,10 @@ private class CloudStreamSettingsCopy private constructor(
         if (turkish) "Kaynağı sabitle" else "Pin source"
     val unpinSource: String =
         if (turkish) "Kaynak sabitlemesini kaldır" else "Unpin source"
+    val pluginSettings: String =
+        if (turkish) "Eklenti ayarları" else "Plugin settings"
+    val pluginNoSettings: String =
+        if (turkish) "Bu eklentinin ayarları yok." else "This plugin has no settings."
     val acceptSecurityWarningFailure: String =
         if (turkish) "Üçüncü taraf eklenti güvenlik uyarısını kabul edin." else "Accept the third-party plugin security warning."
     val pluginNotFoundFailure: String =

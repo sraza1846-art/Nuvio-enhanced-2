@@ -11,4 +11,8 @@ internal actual object CloudStreamPlatformRuntime {
     actual suspend fun removeNativeRepository(url: String) = Unit
     actual fun unload(pluginId: String) = Unit
     actual fun clear() = Unit
+
+    actual suspend fun getCs3PluginSettings(plugin: CloudStreamPluginItem): Cs3PluginSettings? = null
+    actual fun saveCs3PluginSettings(plugin: CloudStreamPluginItem, settings: Cs3PluginSettings) = Unit
+    actual fun removeCs3PluginBypassCookie(domain: String) = Unit
 }
