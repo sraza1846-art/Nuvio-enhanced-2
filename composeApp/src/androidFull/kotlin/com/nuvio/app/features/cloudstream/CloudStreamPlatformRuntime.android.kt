@@ -101,46 +101,27 @@ internal actual object CloudStreamPlatformRuntime {
 
     actual suspend fun provider(plugin: CloudStreamPluginItem): CloudStreamProvider? {
         if (plugin.compatibility.runtimeKind != CloudStreamRuntimeKind.AndroidDex) return null
-        return loadOrGetPlugin(plugin).provider
+        val loaded = loadOrGetPlugin(plugin)
+        // Honor the user's per-provider toggles from the generic Plugin
+        // Settings dialog: only enabled MainAPIs serve content.
+        val enabledApis = loaded.providers.filter { it.javaClass.name !in plugin.disabledApiClassNames }
+        return enabledApis.takeIf { it.isNotEmpty() }
+            ?.let { AndroidDexCloudStreamProvider(plugin.metadata.id.value, it) }
     }
 
-    actual suspend fun getCs3PluginSettings(plugin: CloudStreamPluginItem): Cs3PluginSettings? {
-        if (!plugin.metadata.internalName.equals(CINESTREAM_INTERNAL_NAME, ignoreCase = true)) return null
+    actual suspend fun getCs3PluginApis(plugin: CloudStreamPluginItem): List<Cs3PluginApi>? {
         if (!plugin.isInstalled) return null
         if (plugin.compatibility.runtimeKind != CloudStreamRuntimeKind.AndroidDex) return null
         val context = getContext() ?: return null
         prepareHostContext(context)
-        // The plugin seeds its provider keys on load(); best-effort so a first
-        // open right after install still lists providers. A slow or failing
-        // load must not block the dialog: fall back to stored keys.
-        runCatching { withTimeoutOrNull(CS3_SETTINGS_LOAD_TIMEOUT_MS) { loadOrGetPlugin(plugin) } }
-        return buildCineStreamSettings()
-    }
-
-    actual fun saveCs3PluginSettings(plugin: CloudStreamPluginItem, settings: Cs3PluginSettings) {
-        if (!plugin.metadata.internalName.equals(CINESTREAM_INTERNAL_NAME, ignoreCase = true)) return
-        val context = getContext() ?: return
-        prepareHostContext(context)
-        CloudStreamApp.setKey(CINESTREAM_DOWNLOAD_ENABLE_KEY, settings.downloadOnlyLinks)
-        CloudStreamApp.setKey(CINESTREAM_CONCURRENCY_KEY, settings.scrapingConcurrency.coerceIn(1, 50))
-        saveCs3Token(CINESTREAM_SHOWBOX_TOKEN_KEY, settings.showboxToken)
-        saveCs3Token(CINESTREAM_WYZIE_SUBS_KEY, settings.wyzieSubsKey)
-        saveCs3Token(CINESTREAM_GRAMCINEMA_TOKEN_KEY, settings.gramCinemaToken)
-        CloudStreamApp.setKey(CINESTREAM_PROVIDER_CINESTREAM_KEY, settings.catalogCineStream)
-        CloudStreamApp.setKey(CINESTREAM_PROVIDER_SIMKL_KEY, settings.catalogSimkl)
-        CloudStreamApp.setKey(CINESTREAM_PROVIDER_TMDB_KEY, settings.catalogTmdb)
-        CloudStreamApp.setKey(CINESTREAM_NEW_PROVIDER_DEFAULT_KEY, settings.newProviderDefaultOn)
-        settings.providers.forEach { provider ->
-            CloudStreamApp.setKey(provider.key, provider.enabled)
+        // Best-effort load so a first open right after install still lists
+        // providers. A slow or failing load must not block the dialog.
+        val loaded = runCatching {
+            withTimeoutOrNull(CS3_SETTINGS_LOAD_TIMEOUT_MS) { loadOrGetPlugin(plugin) }
+        }.getOrNull() ?: return null
+        return loaded.providers.map { api ->
+            Cs3PluginApi(className = api.javaClass.name, displayName = api.name)
         }
-        saveCs3ProviderOrder(settings)
-        saveCs3StremioAddons(settings.stremioAddons)
-    }
-
-    actual fun removeCs3PluginBypassCookie(domain: String) {
-        val context = getContext() ?: return
-        prepareHostContext(context)
-        CloudStreamApp.setKey("$CINESTREAM_CF_COOKIE_PREFIX${domain.trim().lowercase()}", null as String?)
     }
 
     actual suspend fun openCs3PluginNativeSettings(plugin: CloudStreamPluginItem): Boolean {
@@ -153,11 +134,10 @@ internal actual object CloudStreamPlatformRuntime {
         }.getOrNull() ?: return false
         val pluginInstance = loaded.instance as? Plugin ?: return false
         val openSettings = pluginInstance.openSettings ?: return false
-        // The plugin's own UI (CineStream's is a platform AlertDialog) needs
+        // A plugin's own UI (for example a platform AlertDialog) needs
         // an Activity window token: the host MainActivity is kept in
         // activityReference by initialize() (see MainActivity.onCreate). The
-        // identity context is only a fallback — invoking with it fails and
-        // the caller falls back to the host-built dialog.
+        // identity context is only a fallback — invoking with it fails.
         val settingsContext = activityReference?.get() ?: loaded.context
         return runCatching {
             withContext(Dispatchers.Main) { openSettings(settingsContext) }
@@ -332,7 +312,6 @@ internal actual object CloudStreamPlatformRuntime {
         val identityContext = CloudStreamIdentityContext(context)
         CloudStreamApp.context = identityContext
         setContext(WeakReference(identityContext))
-        applyHostCompatibilityDefaults(pluginClassName)
         if (manifest.requiresResources) instance.attachResources(identityContext, file)
 
         val providersBefore = APIHolder.allProviders.toSet()
@@ -379,8 +358,6 @@ internal actual object CloudStreamPlatformRuntime {
                 instance = instance,
                 providers = providers,
                 extractors = registeredExtractors,
-                provider = providers.takeIf { it.isNotEmpty() }
-                    ?.let { AndroidDexCloudStreamProvider(item.metadata.id.value, it) },
             )
         } catch (error: Throwable) {
             RuntimeDiagnostics.recordLog(
@@ -491,24 +468,6 @@ internal actual object CloudStreamPlatformRuntime {
         }
     }
 
-    /**
-     * CineStream's optional Simkl catalogue eagerly constructs CloudStream account-sync APIs.
-     * Those APIs are application services rather than extension APIs and are intentionally not
-     * embedded in Nuvio. The catalogue does not participate in CineStream's source extraction;
-     * disabling it lets the primary CineStream/TMDB catalogues and every built-in link provider
-     * load exactly as configured by the extension.
-     */
-    private fun applyHostCompatibilityDefaults(pluginClassName: String) {
-        if (pluginClassName != CINESTREAM_PLUGIN_CLASS) return
-        val preferences = getContext()?.getSharedPreferences(
-            com.lagradost.cloudstream3.utils.PREFERENCES_NAME,
-            Context.MODE_PRIVATE,
-        ) ?: return
-        if (preferences.getString(CINESTREAM_SIMKL_PROVIDER_KEY, null) != "false") {
-            CloudStreamApp.setKey(CINESTREAM_SIMKL_PROVIDER_KEY, false)
-        }
-    }
-
     @Suppress("DEPRECATION")
     private fun BasePlugin.attachResources(context: Context, file: File) {
         val plugin = this as? Plugin ?: return
@@ -527,10 +486,8 @@ internal actual object CloudStreamPlatformRuntime {
     private const val NATIVE_REPOSITORY_SYNC_DELAY_MS = 500L
 
     private const val CLOUDSTREAM_REPOSITORY_MANAGER_CLASS = "com.lagradost.cloudstream3.plugins.RepositoryManager"
+    private const val CS3_SETTINGS_LOAD_TIMEOUT_MS = 20_000L
     private const val CLOUDSTREAM_REPOSITORY_DATA_CLASS = "com.lagradost.cloudstream3.ui.settings.extensions.RepositoryData"
-
-    private const val CINESTREAM_PLUGIN_CLASS = "com.megix.CineStream"
-    private const val CINESTREAM_SIMKL_PROVIDER_KEY = "ProviderSimkl"
 
     private data class LoadedPlugin(
         val id: String,
@@ -539,7 +496,6 @@ internal actual object CloudStreamPlatformRuntime {
         val instance: BasePlugin,
         val providers: List<MainAPI>,
         val extractors: List<com.lagradost.cloudstream3.utils.ExtractorApi>,
-        val provider: CloudStreamProvider?,
     ) {
         fun unload() {
             runCatching { instance.beforeUnload() }
@@ -907,156 +863,4 @@ private fun TvType?.toNuvioTvType(): CloudStreamTvType = when (this) {
     TvType.Live -> CloudStreamTvType.Live
     TvType.Music, TvType.Audio, TvType.AudioBook, TvType.Podcast -> CloudStreamTvType.Music
     else -> CloudStreamTvType.Other
-}
-
-// ── CineStream plugin settings ──────────────────────────────────
-// Key names mirror com.megix.settings.Settings (SaurabhKaperwan/CSX):
-// the plugin reads exactly these keys from CloudStream's DataStore, so
-// values written here take effect in the plugin. Only CineStream's schema
-// is known; other plugins return null from getCs3PluginSettings.
-
-private const val CINESTREAM_INTERNAL_NAME = "CineStream"
-private const val CINESTREAM_DOWNLOAD_ENABLE_KEY = "DownloadEnable"
-private const val CINESTREAM_CONCURRENCY_KEY = "ScrapeConcurrency"
-private const val CINESTREAM_PROVIDER_CINESTREAM_KEY = "ProviderCineStream"
-private const val CINESTREAM_PROVIDER_SIMKL_KEY = "ProviderSimkl"
-private const val CINESTREAM_PROVIDER_TMDB_KEY = "ProviderTmdb"
-private const val CINESTREAM_SHOWBOX_TOKEN_KEY = "showbox_ui_token"
-private const val CINESTREAM_WYZIE_SUBS_KEY = "wyzie_subs_api_key"
-private const val CINESTREAM_GRAMCINEMA_TOKEN_KEY = "gramcinema_bearer_token"
-private const val CINESTREAM_STREMIO_ADDONS_KEY = "stremio_addons"
-private const val CINESTREAM_NEW_PROVIDER_DEFAULT_KEY = "new_provider_default_on"
-private const val CINESTREAM_SEEN_PROVIDERS_KEY = "seen_providers"
-private const val CINESTREAM_PROVIDER_ORDER_KEY = "provider_order"
-private const val CINESTREAM_CF_COOKIE_PREFIX = "cf_cookie_"
-private const val CS3_SETTINGS_LOAD_TIMEOUT_MS = 20_000L
-
-/** Torrent providers are off by default in the plugin (ProviderRegistry.torrentKeys). */
-private val CINESTREAM_TORRENT_KEYS = setOf("p_torrentio", "p_torrentsdb", "p_animetosho")
-private val CINESTREAM_ADDON_TYPES = setOf("HTTPS", "TORRENT", "DEBRID", "SUBTITLE")
-
-private fun buildCineStreamSettings(): Cs3PluginSettings {
-    val seen = readCs3StringList(CINESTREAM_SEEN_PROVIDERS_KEY).toSet()
-    val savedOrder = readCs3StringList(CINESTREAM_PROVIDER_ORDER_KEY)
-    val newDefault = CloudStreamApp.getKey<Boolean>(CINESTREAM_NEW_PROVIDER_DEFAULT_KEY) ?: true
-    val stremioAddons = readCs3StremioAddons()
-    val stremioKeys = stremioAddons.map(::cs3StremioAddonKey).toSet()
-    // Mirrors Settings.getOrder(): saved order first, then any known key not
-    // in it yet. Brand-new registry keys appear after the next plugin load,
-    // which seeds them into seen_providers.
-    val known = (seen + stremioKeys).toSet()
-    val order = (savedOrder.filter { it in known } + (known - savedOrder.toSet())).distinct()
-    return Cs3PluginSettings(
-        downloadOnlyLinks = CloudStreamApp.getKey<Boolean>(CINESTREAM_DOWNLOAD_ENABLE_KEY) ?: false,
-        scrapingConcurrency = (CloudStreamApp.getKey<Int>(CINESTREAM_CONCURRENCY_KEY) ?: 10).coerceIn(1, 50),
-        bypassDomains = listOf(
-            Cs3BypassDomain(
-                domain = "anidao.to",
-                displayName = "AniDao",
-                hasSavedCookie = CloudStreamApp.getKey<String>("${CINESTREAM_CF_COOKIE_PREFIX}anidao.to")
-                    ?.isNotBlank() == true,
-            ),
-        ),
-        showboxToken = CloudStreamApp.getKey<String>(CINESTREAM_SHOWBOX_TOKEN_KEY).orEmpty(),
-        wyzieSubsKey = CloudStreamApp.getKey<String>(CINESTREAM_WYZIE_SUBS_KEY).orEmpty(),
-        gramCinemaToken = CloudStreamApp.getKey<String>(CINESTREAM_GRAMCINEMA_TOKEN_KEY).orEmpty(),
-        catalogCineStream = CloudStreamApp.getKey<Boolean>(CINESTREAM_PROVIDER_CINESTREAM_KEY) ?: true,
-        catalogSimkl = CloudStreamApp.getKey<Boolean>(CINESTREAM_PROVIDER_SIMKL_KEY) ?: true,
-        catalogTmdb = CloudStreamApp.getKey<Boolean>(CINESTREAM_PROVIDER_TMDB_KEY) ?: true,
-        newProviderDefaultOn = newDefault,
-        providers = order.map { key ->
-            Cs3ProviderSetting(
-                key = key,
-                displayName = cs3ProviderDisplayName(key, stremioAddons),
-                enabled = cs3ProviderEnabled(key, seen, newDefault),
-                isStremio = key.startsWith("stremio_"),
-            )
-        },
-        stremioAddons = stremioAddons,
-    )
-}
-
-private fun readCs3StringList(key: String): List<String> =
-    CloudStreamApp.getKey<String>(key)
-        ?.split(",")?.map(String::trim)?.filter(String::isNotBlank)
-        ?: emptyList()
-
-private fun readCs3StremioAddons(): List<Cs3StremioAddon> {
-    val raw = CloudStreamApp.getKey<String>(CINESTREAM_STREMIO_ADDONS_KEY) ?: return emptyList()
-    return raw.lines().filter { it.isNotBlank() }.mapNotNull { line ->
-        val parts = line.split("|")
-        if (parts.size < 3) return@mapNotNull null
-        val type = parts[2].trim().uppercase().takeIf { it in CINESTREAM_ADDON_TYPES } ?: "HTTPS"
-        Cs3StremioAddon(name = parts[0].trim(), url = parts[1].trim(), type = type)
-    }
-}
-
-private fun cs3StremioAddonKey(name: String): String =
-    "stremio_" + name.trim().lowercase().replace(Regex("[^a-z0-9]+"), "_").trim('_')
-
-/** Mirrors Settings.enabled(): explicit value wins, then stremio/torrent/unseen defaults. */
-private fun cs3ProviderEnabled(key: String, seen: Set<String>, newDefault: Boolean): Boolean {
-    CloudStreamApp.getKey<Boolean>(key)?.let { return it }
-    if (key.startsWith("stremio_")) return true
-    if (key in CINESTREAM_TORRENT_KEYS) return false
-    if (key !in seen) return newDefault
-    return true
-}
-
-/**
- * Display name derived from the provider key. The plugin's exact names live
- * in its own ProviderRegistry and are not visible to the host, so casing can
- * differ from the plugin's own dialog (e.g. Moviesdrive vs MoviesDrive).
- */
-private fun cs3ProviderDisplayName(key: String, stremioAddons: List<Cs3StremioAddon>): String {
-    if (key.startsWith("stremio_")) {
-        val addon = stremioAddons.firstOrNull { cs3StremioAddonKey(it.name) == key }
-        return if (addon != null) "🔌 ${addon.name}" else "🔌 " + key.removePrefix("stremio_")
-            .replace("_", " ").replaceFirstChar { it.uppercaseChar() }
-    }
-    val base = key.removePrefix("p_").replace("_", " ")
-        .split(" ").joinToString(" ") { it.replaceFirstChar(Char::uppercaseChar) }
-    return if (key in CINESTREAM_TORRENT_KEYS) "🧲 $base" else base
-}
-
-private fun saveCs3Token(key: String, token: String) {
-    val trimmed = token.trim()
-    if (trimmed.isEmpty()) CloudStreamApp.setKey(key, null as String?)
-    else CloudStreamApp.setKey(key, trimmed)
-}
-
-private fun saveCs3ProviderOrder(settings: Cs3PluginSettings) {
-    val oldSeen = readCs3StringList(CINESTREAM_SEEN_PROVIDERS_KEY)
-    val stremioKeys = settings.stremioAddons.map { cs3StremioAddonKey(it.name) }.toSet()
-    // Mirrors the plugin's commit: keep the dialog order, prune stale Stremio
-    // keys, append newly added Stremio addons at the end.
-    val merged = settings.providers.map { it.key }
-        .filter { key -> !key.startsWith("stremio_") || key in stremioKeys }
-        .let { filtered -> filtered + (stremioKeys - filtered.toSet()) }
-    CloudStreamApp.setKey(CINESTREAM_PROVIDER_ORDER_KEY, merged.joinToString(","))
-    // Mirrors Settings.markProvidersSeen(): brand-new keys get the default.
-    merged.forEach { key ->
-        if (key !in oldSeen && !key.startsWith("stremio_") && key !in CINESTREAM_TORRENT_KEYS &&
-            CloudStreamApp.getKey<Boolean>(key) == null
-        ) {
-            CloudStreamApp.setKey(key, settings.newProviderDefaultOn)
-        }
-    }
-    CloudStreamApp.setKey(CINESTREAM_SEEN_PROVIDERS_KEY, (oldSeen + merged).joinToString(","))
-    (oldSeen - merged.toSet()).forEach { removed ->
-        CloudStreamApp.setKey(removed, null as Boolean?)
-    }
-}
-
-private fun saveCs3StremioAddons(addons: List<Cs3StremioAddon>) {
-    if (addons.isEmpty()) {
-        CloudStreamApp.setKey(CINESTREAM_STREMIO_ADDONS_KEY, null as String?)
-    } else {
-        CloudStreamApp.setKey(
-            CINESTREAM_STREMIO_ADDONS_KEY,
-            addons.joinToString("\n") {
-                "${it.name.trim()}|${it.url.trim().removeSuffix("/manifest.json").trimEnd('/')}|${it.type.uppercase()}"
-            },
-        )
-    }
 }

@@ -136,9 +136,9 @@ open class MainActivity : AppCompatActivity() {
         com.nuvio.app.features.cloudstream.CloudStreamPlatformStorage.initialize(this)
         // Pass the Activity (not applicationContext): the runtime keeps it as
         // a weak reference so CS3 plugins can open their own native settings
-        // UI (e.g. CineStream's AlertDialog), which needs an Activity window
-        // token. initialize() stores applicationContext separately, so the
-        // app context is unaffected.
+        // UI (for example a platform AlertDialog), which needs an Activity
+        // window token. initialize() stores applicationContext separately, so
+        // the app context is unaffected.
         com.nuvio.app.features.cloudstream.CloudStreamPlatformRuntime.initialize(this)
         AuthStorage.initialize(applicationContext)
         ServerConfigurationStorage.initialize(applicationContext)

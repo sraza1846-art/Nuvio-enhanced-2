@@ -60,7 +60,7 @@ import com.nuvio.app.features.cloudstream.CloudStreamPlatformRuntime
 import com.nuvio.app.features.cloudstream.CloudStreamPlatformSupport
 import com.nuvio.app.features.cloudstream.CloudStreamPluginItem
 import com.nuvio.app.features.cloudstream.CloudStreamRepository
-import com.nuvio.app.features.cloudstream.Cs3PluginSettings
+import com.nuvio.app.features.cloudstream.Cs3PluginApi
 import com.nuvio.app.features.settings.AppLanguage
 import com.nuvio.app.features.settings.ThemeSettingsRepository
 import com.nuvio.app.features.streams.StreamSourcePreferencesRepository
@@ -92,7 +92,7 @@ internal fun CloudStreamSettingsSection() {
     var bulkInstallMessage by rememberSaveable { mutableStateOf<String?>(null) }
     var isBulkInstalling by remember { mutableStateOf(false) }
     var configuringCs3Plugin by remember { mutableStateOf<CloudStreamPluginItem?>(null) }
-    var configuringCs3Settings by remember { mutableStateOf<Cs3PluginSettings?>(null) }
+    var configuringCs3Apis by remember { mutableStateOf<List<Cs3PluginApi>?>(null) }
 
     val languages = remember(state.plugins) {
         state.plugins.mapNotNull { it.metadata.language }.distinct().sorted()
@@ -452,6 +452,18 @@ internal fun CloudStreamSettingsSection() {
         }
     }
 
+    // Generic "Nuvio UI" path: open the host-built dialog with the plugin's
+    // registered MainAPIs. A plugin that registers none has no settings.
+    val openGenericPluginSettings: suspend (CloudStreamPluginItem) -> Unit = { item ->
+        val apis = CloudStreamPlatformRuntime.getCs3PluginApis(item)
+        if (apis.isNullOrEmpty()) {
+            message = copy.pluginNoSettings
+        } else {
+            configuringCs3Plugin = item
+            configuringCs3Apis = apis
+        }
+    }
+
     visiblePlugins.forEach { plugin ->
         CloudStreamPluginCard(
             plugin = plugin,
@@ -462,44 +474,27 @@ internal fun CloudStreamSettingsSection() {
             onOpenSettings = { item ->
                 scope.launch {
                     if (state.gearButtonUi == CloudStreamGearButtonUi.NUVIO) {
-                        val settings = CloudStreamPlatformRuntime.getCs3PluginSettings(item)
-                        if (settings == null) {
-                            message = copy.pluginNoSettings
-                        } else {
-                            configuringCs3Plugin = item
-                            configuringCs3Settings = settings
-                        }
+                        openGenericPluginSettings(item)
                     } else {
                         val opened = CloudStreamPlatformRuntime.openCs3PluginNativeSettings(item)
-                        if (!opened) {
-                            val settings = CloudStreamPlatformRuntime.getCs3PluginSettings(item)
-                            if (settings == null) {
-                                message = copy.pluginNoSettings
-                            } else {
-                                configuringCs3Plugin = item
-                                configuringCs3Settings = settings
-                            }
-                        }
+                        if (!opened) openGenericPluginSettings(item)
                     }
                 }
             },
         )
     }
 
-    if (configuringCs3Plugin != null && configuringCs3Settings != null) {
+    val configuringPlugin = configuringCs3Plugin
+    val configuringApis = configuringCs3Apis
+    if (configuringPlugin != null && configuringApis != null) {
         Cs3PluginSettingsDialog(
-            initial = configuringCs3Settings!!,
+            plugin = configuringPlugin,
+            apis = configuringApis,
+            copy = copy,
             onDismiss = {
                 configuringCs3Plugin = null
-                configuringCs3Settings = null
+                configuringCs3Apis = null
             },
-            onSave = { edited ->
-                configuringCs3Plugin?.let { CloudStreamPlatformRuntime.saveCs3PluginSettings(it, edited) }
-            },
-            onRemoveBypassCookie = { domain ->
-                CloudStreamPlatformRuntime.removeCs3PluginBypassCookie(domain)
-            },
-            onMessage = { message = it },
         )
     }
 }
@@ -664,7 +659,7 @@ private fun CloudStreamPluginCard(
     }
 }
 
-private class CloudStreamSettingsCopy private constructor(
+internal class CloudStreamSettingsCopy private constructor(
     private val turkish: Boolean,
 ) {
     val sectionTitle: String =
@@ -775,6 +770,18 @@ private class CloudStreamSettingsCopy private constructor(
         if (turkish) "CloudStream UI (Varsayılan)" else "CloudStream UI (Default)"
     val gearButtonUiNuvio: String =
         if (turkish) "Nuvio UI" else "Nuvio UI"
+    fun pluginSettingsTitle(name: String): String =
+        if (turkish) "$name Ayarları" else "$name Settings"
+    val pluginProvidersDescription: String =
+        if (turkish) {
+            "Bu eklentinin hangi sağlayıcılarının akış sunabileceğini seçin."
+        } else {
+            "Choose which of this plugin's providers can serve streams."
+        }
+    fun pluginProvidersEnabled(enabled: Int, total: Int): String =
+        if (turkish) "$total sağlayıcıdan $enabled etkin" else "$enabled of $total enabled"
+    val dialogDone: String =
+        if (turkish) "Bitti" else "Done"
     val acceptSecurityWarningFailure: String =
         if (turkish) "Üçüncü taraf eklenti güvenlik uyarısını kabul edin." else "Accept the third-party plugin security warning."
     val pluginNotFoundFailure: String =

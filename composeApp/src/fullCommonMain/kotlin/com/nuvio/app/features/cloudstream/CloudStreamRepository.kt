@@ -445,6 +445,26 @@ actual object CloudStreamRepository {
         persist()
     }
 
+    actual fun setPluginApiEnabled(pluginId: String, apiClassName: String, enabled: Boolean) {
+        initialize()
+        _uiState.update { current ->
+            var changed = false
+            val plugins = current.plugins.map { item ->
+                if (item.metadata.id.value != pluginId) return@map item
+                val disabled = item.disabledApiClassNames.toMutableSet()
+                if (enabled) disabled.remove(apiClassName) else disabled.add(apiClassName)
+                val next = disabled.toList()
+                changed = next != item.disabledApiClassNames
+                item.copy(disabledApiClassNames = next)
+            }
+            current.copy(
+                plugins = plugins,
+                registryRevision = current.registryRevision + if (changed) 1 else 0,
+            )
+        }
+        persist()
+    }
+
     actual fun removePlugin(pluginId: String) {
         initialize()
         val plugin = _uiState.value.plugins.firstOrNull { it.metadata.id.value == pluginId } ?: return
@@ -865,6 +885,7 @@ actual object CloudStreamRepository {
                 installedAtEpochMs = plugin.installedAtEpochMs.takeIf { packageExists } ?: 0L,
                 enabled = plugin.enabled && isRepoEnabled && packageExists && plugin.verified && compatibility.isRunnable && metadata.status.canInstall,
                 verified = plugin.verified && packageExists,
+                disabledApiClassNames = plugin.disabledApis,
             )
         }
         return CloudStreamUiState(
@@ -918,6 +939,7 @@ actual object CloudStreamRepository {
         enabled = enabled,
         verified = verified,
         installedAtEpochMs = installedAtEpochMs.takeIf { installedVersion != null } ?: 0L,
+        disabledApis = disabledApiClassNames,
     )
 
     private fun StoredCloudStreamPlugin.toMetadata(): CloudStreamPluginMetadata {

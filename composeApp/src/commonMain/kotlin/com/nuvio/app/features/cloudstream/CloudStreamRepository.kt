@@ -18,6 +18,8 @@ data class CloudStreamPluginItem(
     val verified: Boolean = false,
     val isInstalling: Boolean = false,
     val errorMessage: String? = null,
+    /** MainAPI class names the user disabled for this plugin. */
+    val disabledApiClassNames: List<String> = emptyList(),
 ) {
     val isInstalled: Boolean
         get() = installedVersion != null
@@ -82,6 +84,7 @@ expect object CloudStreamRepository {
     suspend fun installAndEnablePlugins(pluginIds: List<String>): CloudStreamBulkInstallResult
     fun setPluginEnabled(pluginId: String, enabled: Boolean)
     fun removePlugin(pluginId: String)
+    fun setPluginApiEnabled(pluginId: String, apiClassName: String, enabled: Boolean)
 
     suspend fun getMainPage(providerId: String, page: Int = 1): Result<List<Pair<String, List<CloudStreamSearchItem>>>>
     suspend fun search(query: String, providerId: String? = null): List<Result<List<CloudStreamSearchItem>>>

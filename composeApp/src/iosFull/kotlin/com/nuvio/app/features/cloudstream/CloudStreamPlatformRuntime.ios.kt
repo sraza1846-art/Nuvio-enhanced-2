@@ -12,8 +12,6 @@ internal actual object CloudStreamPlatformRuntime {
     actual fun unload(pluginId: String) = Unit
     actual fun clear() = Unit
 
-    actual suspend fun getCs3PluginSettings(plugin: CloudStreamPluginItem): Cs3PluginSettings? = null
-    actual fun saveCs3PluginSettings(plugin: CloudStreamPluginItem, settings: Cs3PluginSettings) = Unit
-    actual fun removeCs3PluginBypassCookie(domain: String) = Unit
+    actual suspend fun getCs3PluginApis(plugin: CloudStreamPluginItem): List<Cs3PluginApi>? = null
     actual suspend fun openCs3PluginNativeSettings(plugin: CloudStreamPluginItem): Boolean = false
 }
