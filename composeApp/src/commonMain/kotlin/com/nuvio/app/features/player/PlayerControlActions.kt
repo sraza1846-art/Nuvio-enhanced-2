@@ -30,6 +30,7 @@ import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
+import androidx.compose.material.icons.rounded.NightsStay
 import androidx.compose.material.icons.rounded.PictureInPictureAlt
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.StayCurrentLandscape
@@ -147,6 +148,8 @@ internal fun PlayerControlActions(
     speedPickerVisible: Boolean = false,
     onSpeedSelected: (Float) -> Unit = {},
     onSpeedPickerDismiss: () -> Unit = {},
+    nightModeEnabled: Boolean = false,
+    onNightModeClick: (() -> Unit)? = null,
     onResizeModeClick: () -> Unit,
     onVideoSettingsClick: (() -> Unit)?,
     onOpenInExternalPlayer: (() -> Unit)?,
@@ -212,6 +215,16 @@ internal fun PlayerControlActions(
             stringResource(Res.string.compose_player_audio), onAudioClick,
             painter = appIconPainter(AppIconResource.PlayerAudioFilled),
         ),
+        onNightModeClick?.let {
+            PlayerToolbarButton.NIGHT_MODE to PlayerControlAction(
+                "${stringResource(Res.string.player_night_mode)} ${
+                    stringResource(if (nightModeEnabled) Res.string.player_night_mode_on else Res.string.player_night_mode_off)
+                }",
+                it,
+                icon = Icons.Rounded.NightsStay,
+                tint = if (nightModeEnabled) MaterialTheme.colorScheme.primary else Color.White,
+            )
+        },
         onNextEpisodeClick?.let {
             PlayerToolbarButton.NEXT_EPISODE to PlayerControlAction(
                 stringResource(Res.string.player_next_episode), it,

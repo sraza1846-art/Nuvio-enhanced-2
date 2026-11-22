@@ -54,6 +54,7 @@ import androidx.compose.material.icons.rounded.CastConnected
 import androidx.compose.material.icons.rounded.PictureInPictureAlt
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
+import androidx.compose.material.icons.rounded.NightsStay
 import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.Replay10
 import androidx.compose.material.icons.rounded.Replay30
@@ -165,6 +166,8 @@ internal fun PlayerControlsShell(
     speedPickerVisible: Boolean = false,
     onSpeedSelected: (Float) -> Unit = {},
     onSpeedPickerDismiss: () -> Unit = {},
+    nightModeEnabled: Boolean = false,
+    onNightModeClick: (() -> Unit)? = null,
     onSubtitleClick: (() -> Unit)? = null,
     onAudioClick: (() -> Unit)? = null,
     onVideoSettingsClick: (() -> Unit)? = null,
@@ -404,6 +407,8 @@ internal fun PlayerControlsShell(
                     onSpeedPickerDismiss = onSpeedPickerDismiss,
                     onSubtitleClick = onSubtitleClick,
                     onAudioClick = onAudioClick,
+                    nightModeEnabled = nightModeEnabled,
+                    onNightModeClick = onNightModeClick,
                     onSourcesClick = onSourcesClick,
                     onEpisodesClick = onEpisodesClick,
                     onChaptersClick = onChaptersClick,
@@ -489,6 +494,8 @@ internal fun PlayerControlsShell(
                         resizeMode = resizeMode,
                         onSubtitleClick = { onSubtitleClick?.invoke() },
                         onAudioClick = { onAudioClick?.invoke() },
+                        nightModeEnabled = nightModeEnabled,
+                        onNightModeClick = onNightModeClick,
                         onSourcesClick = onSourcesClick,
                         onEpisodesClick = onEpisodesClick,
                         onChaptersClick = onChaptersClick,
@@ -978,6 +985,8 @@ private fun ProgressControls(
     speedPickerVisible: Boolean = false,
     onSpeedSelected: (Float) -> Unit = {},
     onSpeedPickerDismiss: () -> Unit = {},
+    nightModeEnabled: Boolean = false,
+    onNightModeClick: (() -> Unit)? = null,
     onSubtitleClick: (() -> Unit)? = null,
     onAudioClick: (() -> Unit)? = null,
     onSourcesClick: (() -> Unit)? = null,
@@ -1106,6 +1115,15 @@ private fun ProgressControls(
                             label = stringResource(Res.string.compose_player_audio),
                             painter = audioPainter,
                             onClick = onAudioClick,
+                        )
+                    }
+                    if (onNightModeClick != null) {
+                        PlayerActionPillButton(
+                            label = stringResource(
+                                if (nightModeEnabled) Res.string.player_night_mode_on else Res.string.player_night_mode_off,
+                            ),
+                            icon = Icons.Rounded.NightsStay,
+                            onClick = onNightModeClick,
                         )
                     }
                     if (!enhancedSettings.hidePlayerResizeMode) {

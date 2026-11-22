@@ -47,6 +47,7 @@ internal val PlayerToolbarButton.labelRes: StringResource
         PlayerToolbarButton.QUALITY -> Res.string.player_toolbar_button_quality
         PlayerToolbarButton.SUBTITLES -> Res.string.compose_player_subtitles
         PlayerToolbarButton.AUDIO -> Res.string.compose_player_audio
+        PlayerToolbarButton.NIGHT_MODE -> Res.string.player_night_mode
         PlayerToolbarButton.NEXT_EPISODE -> Res.string.player_next_episode
         PlayerToolbarButton.SPEED -> Res.string.compose_player_speed
         PlayerToolbarButton.RESIZE -> Res.string.player_toolbar_button_resize
