@@ -37,6 +37,8 @@ import com.nuvio.app.features.downloads.DownloadsLiveStatusPlatform
 import com.nuvio.app.features.downloads.DownloadsPlatformDownloader
 import com.nuvio.app.features.downloads.DownloadsSettingsStorage
 import com.nuvio.app.features.downloads.DownloadsStorage
+import com.nuvio.app.features.downloads.LocalMediaPlatform
+import com.nuvio.app.features.downloads.LocalMediaStorage
 import com.nuvio.app.features.livetv.LiveTvStorage
 import com.nuvio.app.features.settings.NuvioEnhancedBackupFileBridge
 import com.nuvio.app.features.library.LibraryDisplaySettingsStorage
@@ -204,6 +206,9 @@ open class MainActivity : AppCompatActivity() {
         DownloadNetworkGuard.initialize(applicationContext)
         DownloadsExternalFolderPlatform.initialize(applicationContext)
         DownloadsExternalFolderPlatform.bindActivity(this)
+        LocalMediaStorage.initialize(applicationContext)
+        LocalMediaPlatform.initialize(applicationContext)
+        LocalMediaPlatform.bindActivity(this)
         NuvioEnhancedBackupFileBridge.bindActivity(this)
         LiveTvStorage.initialize(applicationContext)
         DnsOverHttpsSettingsStorage.initialize(applicationContext)
@@ -258,6 +263,7 @@ open class MainActivity : AppCompatActivity() {
         AppSystemUiController.unbind(this)
         EpisodeReleaseNotificationPlatform.unbindActivity(this)
         DownloadsExternalFolderPlatform.unbindActivity(this)
+        LocalMediaPlatform.unbindActivity(this)
         NuvioEnhancedBackupFileBridge.unbindActivity(this)
         super.onDestroy()
     }
@@ -268,6 +274,9 @@ open class MainActivity : AppCompatActivity() {
             return
         }
         if (DownloadsExternalFolderPlatform.handleActivityResult(requestCode, resultCode, data)) {
+            return
+        }
+        if (LocalMediaPlatform.handleActivityResult(requestCode, resultCode, data)) {
             return
         }
         super.onActivityResult(requestCode, resultCode, data)

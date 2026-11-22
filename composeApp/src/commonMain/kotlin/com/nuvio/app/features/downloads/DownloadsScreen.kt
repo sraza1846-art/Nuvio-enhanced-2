@@ -191,7 +191,7 @@ fun DownloadsScreen(
     }
 }
 
-private fun LazyListScope.downloadsRootContent(
+internal fun LazyListScope.downloadsRootContent(
     items: List<DownloadItem>,
     speeds: Map<String, Long>,
     watchStatusOf: (DownloadItem) -> DownloadWatchStatus,
@@ -285,7 +285,7 @@ private fun LazyListScope.downloadsRootContent(
     }
 }
 
-private fun LazyListScope.downloadsShowContent(
+internal fun LazyListScope.downloadsShowContent(
     episodes: List<DownloadItem>,
     speeds: Map<String, Long>,
     watchStatusOf: (DownloadItem) -> DownloadWatchStatus,
@@ -350,7 +350,7 @@ private fun LazyListScope.downloadsShowContent(
 }
 
 @Composable
-private fun SummaryText(parts: List<String>) {
+internal fun SummaryText(parts: List<String>) {
     Text(
         text = parts.joinToString(DownloadTextSeparator),
         style = MaterialTheme.typography.bodyMedium,
@@ -359,7 +359,7 @@ private fun SummaryText(parts: List<String>) {
 }
 
 @Composable
-private fun SectionHeader(
+internal fun SectionHeader(
     title: String,
     detail: String? = null,
     actionText: String? = null,
@@ -385,7 +385,7 @@ private fun SectionHeader(
 }
 
 @Composable
-private fun DownloadsEmptyState(
+internal fun DownloadsEmptyState(
     title: String,
     message: String? = null,
 ) {
@@ -430,7 +430,7 @@ private fun DownloadsEmptyState(
 }
 
 @Composable
-private fun DeleteDownloadDialog(
+internal fun DeleteDownloadDialog(
     item: DownloadItem,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
@@ -453,7 +453,7 @@ private fun DeleteDownloadDialog(
     )
 }
 
-private sealed interface DownloadedEntry {
+internal sealed interface DownloadedEntry {
     val key: String
     val addedAtEpochMs: Long
 
@@ -471,7 +471,7 @@ private sealed interface DownloadedEntry {
     }
 }
 
-private fun List<DownloadItem>.downloadedEntries(): List<DownloadedEntry> {
+internal fun List<DownloadItem>.downloadedEntries(): List<DownloadedEntry> {
     val completed = filter { it.status == DownloadStatus.Completed }
     val downloadingByShow = filter { it.isEpisode && it.status != DownloadStatus.Completed }
         .groupingBy { it.parentMetaId }
@@ -491,7 +491,7 @@ private fun List<DownloadItem>.downloadedEntries(): List<DownloadedEntry> {
     return (movies + shows).sortedByDescending { it.addedAtEpochMs }
 }
 
-private fun DownloadItem.toggleTransfer() {
+internal fun DownloadItem.toggleTransfer() {
     when (status) {
         DownloadStatus.Downloading, DownloadStatus.Queued -> DownloadsRepository.pauseDownload(id)
         DownloadStatus.Paused, DownloadStatus.Failed -> DownloadsRepository.resumeDownload(id)

@@ -113,6 +113,7 @@ import com.nuvio.app.features.details.MetaScreenSettingsRepository
 import com.nuvio.app.features.downloads.DownloadItem
 import com.nuvio.app.features.downloads.DownloadSubtitles
 import com.nuvio.app.features.downloads.DownloadsRepository
+import com.nuvio.app.features.downloads.LocalMediaFile
 import com.nuvio.app.features.home.HomeCatalogSection
 import com.nuvio.app.features.home.HomeCatalogSettingsRepository
 import com.nuvio.app.features.home.HomeRepository
@@ -470,6 +471,7 @@ internal fun MainAppContent(
                 searchScrollToTopRequests.tryEmit(Unit)
             }
             AppScreenTab.Library -> libraryScrollToTopRequests.tryEmit(Unit)
+            AppScreenTab.Downloads -> Unit
             AppScreenTab.LiveTv -> liveTvScrollToTopRequests.tryEmit(Unit)
             AppScreenTab.Settings -> settingsRootActionRequests.tryEmit(Unit)
         }
@@ -1004,6 +1006,30 @@ internal fun MainAppContent(
                 parentMetaType = item.parentMetaType,
                 initialPositionMs = resumeEntry?.lastPositionMs?.takeIf { it > 0L } ?: 0L,
                 initialProgressFraction = resumeEntry?.progressFraction?.takeIf { it > 0f },
+            )
+            if (playerSettingsUiState.externalPlayerEnabled) {
+                coroutineScope.launch { openExternalPlayback(playerLaunch) }
+                return
+            }
+            val launchId = PlayerLaunchStore.put(playerLaunch)
+            navController.navigate(PlayerRoute(launchId = launchId, title = playerLaunch.title))
+        }
+
+        fun openLocalMediaFile(file: LocalMediaFile) {
+            val playerLaunch = PlayerLaunch(
+                profileId = activePlaybackProfileId,
+                title = file.name,
+                sourceUrl = file.uri,
+                sourceHeaders = emptyMap(),
+                sourceResponseHeaders = emptyMap(),
+                externalSubtitles = emptyList(),
+                streamType = null,
+                streamTitle = file.name,
+                providerName = "",
+                contentType = "movie",
+                videoId = "local:${file.uri}",
+                parentMetaId = "local:${file.uri}",
+                parentMetaType = "movie",
             )
             if (playerSettingsUiState.externalPlayerEnabled) {
                 coroutineScope.launch { openExternalPlayback(playerLaunch) }
@@ -1699,6 +1725,16 @@ internal fun MainAppContent(
                                 },
                                 onDownloadsClick = { navController.navigate(DownloadsRoute(downloadsTitle)) },
                                 onOpenDownload = ::openDownloadedItem,
+                                onOpenDownloadDetails = { item ->
+                                    navController.navigate(
+                                        DetailRoute(
+                                            type = item.parentMetaType,
+                                            id = item.parentMetaId,
+                                            title = item.title,
+                                        ),
+                                    )
+                                },
+                                onOpenLocalFile = ::openLocalMediaFile,
                                 onContinueWatchingClick = onContinueWatchingClick,
                                 onContinueWatchingLongPress = onContinueWatchingLongPress,
                                 onLiveTvChannelClick = onLiveTvChannelClick,

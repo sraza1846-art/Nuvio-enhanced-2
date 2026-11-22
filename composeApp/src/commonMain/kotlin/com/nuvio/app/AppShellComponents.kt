@@ -33,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Tv
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -76,6 +77,8 @@ import com.nuvio.app.features.library.LibraryScreen
 import com.nuvio.app.features.library.LibrarySection
 import com.nuvio.app.features.library.LibrarySortOption
 import com.nuvio.app.features.downloads.DownloadItem
+import com.nuvio.app.features.downloads.DownloadsTabScreen
+import com.nuvio.app.features.downloads.LocalMediaFile
 import com.nuvio.app.features.livetv.LiveTvChannel
 import com.nuvio.app.features.livetv.LiveTvScreen
 import com.nuvio.app.features.livetv.LiveTvVodPlayback
@@ -97,6 +100,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.app_brand_name
+import nuvio.composeapp.generated.resources.compose_nav_downloads
 import nuvio.composeapp.generated.resources.compose_nav_home
 import nuvio.composeapp.generated.resources.compose_nav_library
 import nuvio.composeapp.generated.resources.compose_nav_live_tv
@@ -158,6 +162,8 @@ internal data class AppTabActions(
     val onConnectCloudClick: (() -> Unit)? = null,
     val onDownloadsClick: () -> Unit = {},
     val onOpenDownload: ((DownloadItem) -> Unit)? = null,
+    val onOpenDownloadDetails: ((DownloadItem) -> Unit)? = null,
+    val onOpenLocalFile: ((LocalMediaFile) -> Unit)? = null,
     val onContinueWatchingClick: ((ContinueWatchingItem) -> Unit)? = null,
     val onContinueWatchingLongPress: ((ContinueWatchingItem) -> Unit)? = null,
     val onLiveTvChannelClick: (LiveTvChannel) -> Unit = {},
@@ -245,6 +251,15 @@ internal fun AppTabHost(
                     onDownloadsClick = actions.onDownloadsClick,
                     onOpenDownload = actions.onOpenDownload,
                     disintegrationRequest = state.libraryDisintegrationRequest,
+                )
+            }
+
+            AppScreenTab.Downloads -> {
+                DownloadsTabScreen(
+                    modifier = Modifier.fillMaxSize(),
+                    onOpenDownload = actions.onOpenDownload ?: {},
+                    onOpenDownloadDetails = actions.onOpenDownloadDetails ?: {},
+                    onOpenLocalFile = actions.onOpenLocalFile ?: {},
                 )
             }
 
@@ -361,6 +376,23 @@ internal fun TabletFloatingTopBar(
                             contentDescription = stringResource(Res.string.compose_nav_library),
                             modifier = Modifier.size(NuvioTokens.Space.s18),
                             tint = if (selectedTab == AppScreenTab.Library) {
+                                tokens.colors.textPrimary
+                            } else {
+                                tokens.colors.textMuted
+                            },
+                        )
+                    },
+                )
+                TabletTopPillItem(
+                    label = stringResource(Res.string.compose_nav_downloads),
+                    selected = selectedTab == AppScreenTab.Downloads,
+                    onClick = { onTabSelected(AppScreenTab.Downloads) },
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Rounded.Download,
+                            contentDescription = stringResource(Res.string.compose_nav_downloads),
+                            modifier = Modifier.size(NuvioTokens.Space.s18),
+                            tint = if (selectedTab == AppScreenTab.Downloads) {
                                 tokens.colors.textPrimary
                             } else {
                                 tokens.colors.textMuted

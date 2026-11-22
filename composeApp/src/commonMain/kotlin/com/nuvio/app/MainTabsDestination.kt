@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Tv
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -46,6 +47,7 @@ import com.nuvio.app.core.ui.glass.LiquidGlassEffectDefaults
 import com.nuvio.app.core.ui.glass.LiquidGlassEffectSettings
 import com.nuvio.app.core.ui.glass.LiquidGlassStyle
 import nuvio.composeapp.generated.resources.Res
+import nuvio.composeapp.generated.resources.compose_nav_downloads
 import nuvio.composeapp.generated.resources.compose_nav_home
 import nuvio.composeapp.generated.resources.compose_nav_library
 import nuvio.composeapp.generated.resources.compose_nav_live_tv
@@ -278,6 +280,14 @@ internal fun mainFloatingNavigationItems(
             label = stringResource(Res.string.compose_nav_library),
         ),
     )
+    add(
+        FloatingNavigationItem(
+            selected = highlightedTab == AppScreenTab.Downloads,
+            onClick = { onTabSelected(AppScreenTab.Downloads) },
+            icon = Icons.Rounded.Download,
+            label = stringResource(Res.string.compose_nav_downloads),
+        ),
+    )
     if (showLiveTv) {
         add(
             FloatingNavigationItem(
@@ -335,6 +345,12 @@ internal fun MainClassicNavigationBar(
             onClick = { onTabSelected(AppScreenTab.Library) },
             icon = Res.drawable.sidebar_library,
             contentDescription = stringResource(Res.string.compose_nav_library),
+        )
+        NavItem(
+            selected = highlightedTab == AppScreenTab.Downloads,
+            onClick = { onTabSelected(AppScreenTab.Downloads) },
+            icon = Icons.Rounded.Download,
+            contentDescription = stringResource(Res.string.compose_nav_downloads),
         )
         if (showLiveTv) {
             NavItem(

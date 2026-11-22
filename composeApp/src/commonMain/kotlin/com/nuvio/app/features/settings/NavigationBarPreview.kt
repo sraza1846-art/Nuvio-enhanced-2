@@ -109,7 +109,7 @@ internal fun NavigationBarPreview(
                 }
             }
             if (tabletClassic) {
-                val previewTabs = listOf(AppScreenTab.Home, AppScreenTab.Search, AppScreenTab.Library, AppScreenTab.Settings)
+                val previewTabs = listOf(AppScreenTab.Home, AppScreenTab.Search, AppScreenTab.Library, AppScreenTab.Downloads, AppScreenTab.Settings)
                 TabletFloatingTopBar(
                     selectedTab = previewTabs[selectedIndex],
                     showLiveTv = false,
