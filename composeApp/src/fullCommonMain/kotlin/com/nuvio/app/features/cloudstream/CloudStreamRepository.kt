@@ -24,6 +24,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
@@ -63,6 +64,7 @@ actual object CloudStreamRepository {
     private const val LOAD_RESULT_CACHE_TTL_MS = 600_000L
     private const val REPOSITORY_DISCOVERY_CONCURRENCY = 6
     private const val PROVIDER_REQUEST_CONCURRENCY = 4
+    private const val CLOUDSTREAM_SEARCH_TIMEOUT_MS = 25_000L
 
     actual fun initialize() {
         val profileId = ProfileRepository.activeProfileId.coerceAtLeast(1)
@@ -555,7 +557,12 @@ actual object CloudStreamRepository {
                 async {
                     gate.withPermit {
                         RuntimeDiagnostics.recordLog("cs-search-provider-start id=$id")
-                        providerResult(id) { search(query.trim()) }
+                       val providerSearch = withTimeoutOrNull(CLOUDSTREAM_SEARCH_TIMEOUT_MS) {
+    providerResult(id) { search(query.trim()) }
+} ?: Result.failure(
+    IllegalStateException("CloudStream search timed out after 25 seconds"),
+)
+providerSearch
                             .onSuccess { items -> RuntimeDiagnostics.recordLog("cs-search-provider-success id=$id count=${items.size}") }
                             .onFailure { error -> RuntimeDiagnostics.recordLog("cs-search-provider-failure id=$id error=${error.message?.take(160)}") }
                     }
