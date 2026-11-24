@@ -176,10 +176,9 @@ object CatalogRepository {
                         val pageNumber = requestedSkip.takeIf { it > 0 } ?: 1
                         val items = if (!target.searchQuery.isNullOrBlank()) {
                             CloudStreamRepository.search(target.searchQuery, target.providerId)
-                                .firstOrNull()
-                                ?.getOrThrow()
-                                .orEmpty()
-                                .map { it.toMetaPreview() }
+    .flatMap { result -> result.getOrNull().orEmpty() }
+    .distinct()
+    .map { it.toMetaPreview() }
                         } else {
                             val sections = CloudStreamRepository.getMainPage(target.providerId, pageNumber).getOrThrow()
                             val matchingSection = sections.firstOrNull { it.first == target.categoryName }
